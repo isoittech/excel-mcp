@@ -1,0 +1,15 @@
+services:
+  # Excel MCP Server (FastMCP SSE / HTTP via uv)
+  excel-mcp-server:
+    build: .
+    container_name: excel-mcp-server
+    # Run in SSE transport mode on port 8585 inside the container by default
+    command: ["excel-mcp-server", "-t", "sse", "-p", "8585"]
+    ports:
+      # Host 8585 -> container 8585 (MCP clients can use http://host.docker.internal:8585/sse)
+      - "8585:8585"
+    restart: unless-stopped
+    environment:
+      # If your Excel tools require additional environment variables (e.g. Java options),
+      # you can define them here.
+      - PYTHONPATH=/app/src
