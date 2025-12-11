@@ -1,0 +1,14 @@
+{
+  "mcpServers": {
+    "excel-mcp-server": {
+      "command": "uv",
+      "args": [
+        "run",
+        "excel-mcp-server"
+      ],
+      "env": {
+        "PYTHONPATH": "./src"
+      }
+    }
+  }
+}

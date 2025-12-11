@@ -1,0 +1,18 @@
+[project]
+name = "excel-mcp-server"
+version = "0.1.0"
+description = "MCP server for Excel operations backed by Java tools"
+requires-python = ">=3.11"
+# readme intentionally omitted for local MCP usage
+license = { text = "MIT" }
+
+dependencies = [
+  "fastmcp>=0.3.0",
+]
+
+[project.scripts]
+excel-mcp-server = "excel_mcp_server:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
