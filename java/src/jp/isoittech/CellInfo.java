@@ -1,4 +1,4 @@
-package msi.aiproc.excel;
+package jp.isoittech;
 
 public class CellInfo {
     private int row;

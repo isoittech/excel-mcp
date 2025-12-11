@@ -1,4 +1,4 @@
-package msi.aiproc.excel;
+package jp.isoittech;
 
 import com.google.gson.Gson;
 import com.google.gson.JsonSyntaxException;

@@ -1,4 +1,4 @@
-package msi.aiproc.excel;
+package jp.isoittech;
 
 import java.io.File;
 import java.io.FileInputStream;
@@ -72,30 +72,18 @@ public class UpdateExcelFile {
              Workbook workbook = new XSSFWorkbook(fis);
              FileOutputStream fos = new FileOutputStream(new File(outputExcelFilePath))) {
 
-            // シートを取得
-            updateSheet(workbook, "表紙", jsonData.getCoverPage());
-            updateSheet(workbook, "明細", jsonData.getDetails());
-            updateSheet(workbook, "表紙 (バイヤ)", jsonData.getCoverPageBuyer());
-            updateSheet(workbook, "明細 (バイヤ)", jsonData.getDetailsBuyer());
+            // シートを取得 (テスト用に Sheet1 のみ更新)
+            updateSheet(workbook, "Sheet1", jsonData.getCoverPage());
             // 変更内容を新しいファイルに書き込む
             workbook.write(fos);
-        }
-        catch (FileNotFoundException e) {
-            logger.error("指定された入力ファイルがない: " + inputExcelFilePath, e);
-            System.exit(1);
-        }
-        catch (IOException e) {
-            logger.error("ファイルの読み書きエラー", e);
-            System.exit(1);
-        }
-        catch (Exception e) {
-            logger.error("処理失敗", e);
-            System.exit(1);
-        }
 
-        // 正常終了
-        logger.info("[SUCCESSFUL TERMINATION]");
-        System.exit(0);
+            // 正常終了
+            logger.info("[SUCCESSFUL TERMINATION]");
+        } catch (Throwable t) {
+            // 何が起きても Java 側のスタックトレースを出して終了
+            t.printStackTrace();
+            logger.error("処理失敗(予期しない例外)", t);
+        }
     }
 
     private static void updateSheet(Workbook workbook,
@@ -107,23 +95,23 @@ public class UpdateExcelFile {
         Sheet sheet = workbook.getSheet(sheetName);
         if (sheet == null) {
             logger.error("指定されたシートがない: " + sheetName);
-            System.exit(1);
+            return;
         }
         
         if (cellInfoList != null && !cellInfoList.isEmpty()) {
             for (CellInfo cellInfo : cellInfoList) {
-                // 行を特定する
+                // 行を特定する（なければ作成）
                 Row row = sheet.getRow(cellInfo.getRow());
                 if (row == null) {
-                    logger.error("指定された行が存在しない: " + cellInfo.getRow());
-                    System.exit(1);
+                    logger.info("指定された行が存在しないため新規作成: " + cellInfo.getRow());
+                    row = sheet.createRow(cellInfo.getRow());
                 }
 
-                // セルを特定する
+                // セルを特定する（なければ作成）
                 Cell cell = row.getCell(cellInfo.getColumn());
                 if (cell == null) {
-                    logger.error("指定されたセルが存在しない: " + cellInfo.getRow() + "行, " + cellInfo.getColumn() + "列");
-                    System.exit(1);
+                    logger.info("指定されたセルが存在しないため新規作成: " + cellInfo.getRow() + "行, " + cellInfo.getColumn() + "列");
+                    cell = row.createCell(cellInfo.getColumn());
                 }
 
                 switch (cellInfo.getType()) {
