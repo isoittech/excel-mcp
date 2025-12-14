@@ -106,7 +106,45 @@ cd py
 docker compose up -d
 ```
 
-MCP クライアントからは、`http://host.docker.internal:8585/sse` などの SSE エンドポイントを指定します。
+#### LibreChat とのファイル共有（/mnt/data）とダウンロード URL
+
+LibreChat はツール実行環境のファイルパスとして `/mnt/data/...` を使うことがあります（例: 添付ファイルやコード実行の成果物）。
+excel-mcp-server からも同じパスで読み書きできるように、ホスト側の「共有ディレクトリ」を excel-mcp-server コンテナの `/mnt/data` にマウントしてください。
+
+また、エンドユーザーはコンテナ内パス（例: `/mnt/data/file.xlsx`）へ直接アクセスできないため、excel-mcp-server は SSE モード時に `/files/...` を公開し、ツール結果に `download_url`（クリック可能な URL）を含めます。
+この `download_url` を生成するために、デプロイ環境で `EXCEL_PUBLIC_BASE_URL` の設定が必須です。
+
+設定項目:
+- `MCP_SHARED_DIR`: ホスト側の共有ディレクトリ（コンテナ内 `/mnt/data` へマウント）
+- `EXCEL_PUBLIC_BASE_URL`: エンドユーザーから到達可能な excel-mcp-server の公開 URL（例: `https://your-domain.example` や `http://your-host:8585`）
+
+例（推奨: `.env` を使う）:
+
+1) 設定ファイル作成（テンプレからコピー）
+```bash
+cd py
+cp .env.example .env
+```
+
+2) `.env` を編集（例: 公開 URL / 共有ディレクトリ）
+- `EXCEL_PUBLIC_BASE_URL`: エンドユーザーから到達可能な excel-mcp-server の公開 URL
+- `MCP_SHARED_DIR`: ホスト側の共有ディレクトリ（コンテナ内 `/mnt/data` へマウント）
+
+3) 起動
+```bash
+docker compose up -d --build
+```
+
+参考（環境変数を直接 export する場合）:
+
+```bash
+cd py
+export MCP_SHARED_DIR=/path/to/shared
+export EXCEL_PUBLIC_BASE_URL=http://your-host:8585
+docker compose up -d --build
+```
+
+MCP クライアント（LibreChat）からは、`http://host.docker.internal:8585/sse` などの SSE エンドポイントを指定します（LibreChat から見た到達先）。
 
 ## 主なツール一覧
 
