@@ -207,3 +207,5 @@ marimo/_lsp/
 __marimo__/
 
 java/test.updated.xlsx
+py/shared/edo_vs_muromachi.xlsx
+*.code-workspace
