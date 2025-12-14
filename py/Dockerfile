@@ -1,17 +1,25 @@
 FROM python:3.11-alpine
 
-# Install system dependencies needed by Java and Python wrappers
-RUN apk add --no-cache openjdk11-jre-headless gcc musl-dev libffi-dev
+# Install system dependencies needed by Java compilation and Python runtime
+RUN apk add --no-cache openjdk11-jdk bash gcc musl-dev libffi-dev
 
-# Set work directory
+# Repository root in the image
 WORKDIR /app
 
-# Copy the Excel MCP server package (this directory corresponds to excel-mcp/py)
-COPY . .
+# Copy both Python server code and Java implementation into the image
+COPY py/ ./py/
+COPY java/ ./java/
 
-# Install uv and project dependencies
+# Install uv and Python dependencies (py/ contains pyproject.toml)
+WORKDIR /app/py
 RUN pip install --no-cache-dir uv && \
     uv pip install --system .
 
-# Default entrypoint: run the Excel MCP server in stdio mode
-ENTRYPOINT ["uv", "run", "excel-mcp-server"]
+# Compile Java tools to /app/java/dist so the Python wrapper can load jp.isoittech.* classes
+WORKDIR /app/java
+RUN bash ./tools/compile.sh
+
+# Default entrypoint: run the Excel MCP server via the module entrypoint
+# (so CLI args like `-t sse -p 8585` are parsed by excel_mcp_server.py)
+WORKDIR /app/py
+ENTRYPOINT ["uv", "run", "python", "-m", "excel_mcp_server"]
