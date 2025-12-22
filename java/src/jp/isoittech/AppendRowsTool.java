@@ -26,6 +26,7 @@ import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonParser;
 import org.apache.poi.ss.usermodel.Cell;
+import org.apache.poi.ss.usermodel.CellStyle;
 import org.apache.poi.ss.usermodel.Row;
 import org.apache.poi.ss.usermodel.Sheet;
 import org.apache.poi.ss.usermodel.Workbook;
@@ -62,7 +63,8 @@ public class AppendRowsTool {
             int startRow = findFirstEmptyRowByAnchorColumn(sheet, anchorColIndex);
             int startCol = 0; // append starts from column A
 
-            writeMatrixAt(sheet, startRow, startCol, rows);
+            Row templateRow = startRow > 0 ? sheet.getRow(startRow - 1) : null;
+            writeMatrixAt(sheet, startRow, startCol, rows, templateRow);
 
             try (FileOutputStream fos = new FileOutputStream(file)) {
                 workbook.write(fos);
@@ -119,8 +121,11 @@ public class AppendRowsTool {
 
     /**
      * Writes matrix-like JSON to the sheet starting at (startRow, startCol).
+     *
+     * When appending, we try to keep the visible look by copying styles from a template row
+     * (typically the row immediately above the append position).
      */
-    private static void writeMatrixAt(Sheet sheet, int startRow, int startCol, JsonArray rows) {
+    private static void writeMatrixAt(Sheet sheet, int startRow, int startCol, JsonArray rows, Row templateRow) {
         for (int r = 0; r < rows.size(); r++) {
             JsonArray rowArray = rows.get(r).getAsJsonArray();
             int rowIndex = startRow + r;
@@ -128,6 +133,10 @@ public class AppendRowsTool {
             Row row = sheet.getRow(rowIndex);
             if (row == null) {
                 row = sheet.createRow(rowIndex);
+                // Best-effort: copy row height from template row if available.
+                if (templateRow != null) {
+                    row.setHeight(templateRow.getHeight());
+                }
             }
 
             for (int c = 0; c < rowArray.size(); c++) {
@@ -137,6 +146,22 @@ public class AppendRowsTool {
                 Cell cell = row.getCell(colIndex);
                 if (cell == null) {
                     cell = row.createCell(colIndex);
+
+                    // 1) Prefer copying style from template row cell (Excel-like behavior).
+                    if (templateRow != null) {
+                        Cell tpl = templateRow.getCell(colIndex);
+                        if (tpl != null) {
+                            CellStyle tplStyle = tpl.getCellStyle();
+                            if (tplStyle != null) {
+                                cell.setCellStyle(tplStyle);
+                            }
+                        }
+                    }
+
+                    // 2) Fallback: best-effort style inheritance (above/left/column/row).
+                    if (cell.getCellStyle() == null || cell.getCellStyle().getIndex() == 0) {
+                        applyBestEffortStyle(sheet, rowIndex, colIndex, cell);
+                    }
                 }
 
                 writeCellValue(cell, cellElement);
@@ -144,8 +169,67 @@ public class AppendRowsTool {
         }
     }
 
+    /**
+     * Best-effort style inheritance to keep the "Excel visible look" when new cells are created.
+     *
+     * Priority:
+     *  1) Nearest above non-null cell style (scan upward in the same column)
+     *  2) Left cell style (same row, previous column)
+     *  3) Column style
+     *  4) Row style
+     */
+    private static void applyBestEffortStyle(Sheet sheet, int rowIndex, int colIndex, Cell target) {
+        CellStyle style = null;
+
+        // 1) Scan upward (handles cases where the immediate above cell object is null)
+        for (int r = rowIndex - 1; r >= 0; r--) {
+            Row aboveRow = sheet.getRow(r);
+            if (aboveRow == null) {
+                continue;
+            }
+            Cell above = aboveRow.getCell(colIndex);
+            if (above != null) {
+                style = above.getCellStyle();
+                break;
+            }
+        }
+
+        // 2) Left
+        if (style == null && colIndex > 0) {
+            Row row = sheet.getRow(rowIndex);
+            if (row != null) {
+                Cell left = row.getCell(colIndex - 1);
+                if (left != null) {
+                    style = left.getCellStyle();
+                }
+            }
+        }
+
+        // 3) Column style
+        if (style == null) {
+            try {
+                style = sheet.getColumnStyle(colIndex);
+            } catch (Exception ignored) {
+                // ignore
+            }
+        }
+
+        // 4) Row style
+        if (style == null) {
+            Row row = sheet.getRow(rowIndex);
+            if (row != null) {
+                style = row.getRowStyle();
+            }
+        }
+
+        if (style != null) {
+            target.setCellStyle(style);
+        }
+    }
+
     private static void writeCellValue(Cell cell, JsonElement cellElement) {
         if (cellElement == null || cellElement.isJsonNull()) {
+            // Keep style; only clear content.
             cell.setBlank();
             return;
         }
