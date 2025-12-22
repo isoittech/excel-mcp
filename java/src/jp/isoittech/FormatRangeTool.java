@@ -12,6 +12,7 @@ import java.util.HashMap;
 import java.util.Map;
 
 import org.apache.poi.ss.usermodel.Cell;
+import org.apache.poi.ss.usermodel.CellStyle;
 import org.apache.poi.ss.usermodel.FillPatternType;
 import org.apache.poi.ss.usermodel.Row;
 import org.apache.poi.ss.usermodel.Sheet;
@@ -96,8 +97,16 @@ public class FormatRangeTool {
                 }
                 for (int c = range.getFirstColumn(); c <= range.getLastColumn(); c++) {
                     Cell cell = row.getCell(c);
+                    boolean created = false;
                     if (cell == null) {
                         cell = row.createCell(c);
+                        created = true;
+                    }
+
+                    // If we just created the cell, inherit the best-effort visible style first.
+                    // Otherwise, a newly created cell defaults to vertical=BOTTOM etc.
+                    if (created && (cell.getCellStyle() == null || cell.getCellStyle().getIndex() == 0)) {
+                        applyBestEffortStyle(sheet, r, c, cell);
                     }
 
                     XSSFCellStyle baseStyle = (XSSFCellStyle) cell.getCellStyle();
@@ -175,6 +184,64 @@ public class FormatRangeTool {
         }
 
         return dst;
+    }
+
+    /**
+     * Best-effort style inheritance to keep the "Excel visible look" when new cells are created.
+     *
+     * Priority:
+     *  1) Nearest above non-null cell style (scan upward in the same column)
+     *  2) Left cell style (same row, previous column)
+     *  3) Column style
+     *  4) Row style
+     */
+    private static void applyBestEffortStyle(Sheet sheet, int rowIndex, int colIndex, Cell target) {
+        CellStyle style = null;
+
+        // 1) Scan upward
+        for (int r = rowIndex - 1; r >= 0; r--) {
+            Row aboveRow = sheet.getRow(r);
+            if (aboveRow == null) {
+                continue;
+            }
+            Cell above = aboveRow.getCell(colIndex);
+            if (above != null) {
+                style = above.getCellStyle();
+                break;
+            }
+        }
+
+        // 2) Left
+        if (style == null && colIndex > 0) {
+            Row row = sheet.getRow(rowIndex);
+            if (row != null) {
+                Cell left = row.getCell(colIndex - 1);
+                if (left != null) {
+                    style = left.getCellStyle();
+                }
+            }
+        }
+
+        // 3) Column style
+        if (style == null) {
+            try {
+                style = sheet.getColumnStyle(colIndex);
+            } catch (Exception ignored) {
+                // ignore
+            }
+        }
+
+        // 4) Row style
+        if (style == null) {
+            Row row = sheet.getRow(rowIndex);
+            if (row != null) {
+                style = row.getRowStyle();
+            }
+        }
+
+        if (style != null) {
+            target.setCellStyle(style);
+        }
     }
 
     /**
