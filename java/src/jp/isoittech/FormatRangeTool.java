@@ -14,6 +14,7 @@ import org.apache.poi.ss.usermodel.FillPatternType;
 import org.apache.poi.ss.usermodel.Row;
 import org.apache.poi.ss.usermodel.Sheet;
 import org.apache.poi.ss.util.CellRangeAddress;
+import org.apache.poi.xssf.usermodel.IndexedColorMap;
 import org.apache.poi.xssf.usermodel.XSSFCellStyle;
 import org.apache.poi.xssf.usermodel.XSSFColor;
 import org.apache.poi.xssf.usermodel.XSSFFont;
@@ -66,6 +67,9 @@ public class FormatRangeTool {
 
             CellRangeAddress range = ExcelRangeUtils.parseRange(startCell + ":" + endCell);
 
+            // POI 4+ requires an IndexedColorMap for reliable RGB color handling in XSSF.
+            IndexedColorMap colorMap = workbook.getStylesSource().getIndexedColors();
+
             XSSFCellStyle style = workbook.createCellStyle();
             XSSFFont font = workbook.createFont();
             font.setBold(bold);
@@ -74,13 +78,13 @@ public class FormatRangeTool {
                 font.setFontHeightInPoints((short) fontSize);
             }
             if (!fontColor.isEmpty()) {
-                XSSFColor fontXssfColor = new XSSFColor(parseRgbColor(fontColor), null);
+                XSSFColor fontXssfColor = new XSSFColor(parseRgbColor(fontColor), colorMap);
                 font.setColor(fontXssfColor);
             }
             style.setFont(font);
 
             if (!bgColor.isEmpty()) {
-                XSSFColor bg = new XSSFColor(parseRgbColor(bgColor), null);
+                XSSFColor bg = new XSSFColor(parseRgbColor(bgColor), colorMap);
                 style.setFillForegroundColor(bg);
                 style.setFillPattern(FillPatternType.SOLID_FOREGROUND);
             }
