@@ -232,10 +232,27 @@ def copy_range(
     source_end: str,
     target_start: str,
     target_sheet: Optional[str] = None,
+    copy_style: bool = True,
 ) -> None:
+    """Copy a cell range to a target location.
+
+    Parameters
+    ----------
+    copy_style:
+        When true (default), also copy cell style (borders, fills, font, alignment, etc.)
+        in addition to values. When false, copy values only.
+    """
     args = [file_path, sheet_name, source_start, source_end, target_start]
     if target_sheet is not None:
         args.append(target_sheet)
+        # 7th arg: copyStyle
+        args.append(str(copy_style).lower())
+    else:
+        # Backward compatible: if copy_style is explicitly false, pass it as 6th arg
+        # (CopyRangeTool treats 6th boolean as copyStyle when targetSheet is omitted).
+        if copy_style is not True:
+            args.append(str(copy_style).lower())
+
     result = _run_java("jp.isoittech.CopyRangeTool", args)
     if result.returncode != 0:
         raise RuntimeError(result.stderr or f"CopyRangeTool failed: {result.returncode}")

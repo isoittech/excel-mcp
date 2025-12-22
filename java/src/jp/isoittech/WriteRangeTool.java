@@ -132,7 +132,7 @@ public class WriteRangeTool {
      * Best-effort style inheritance to keep the "Excel visible look" when new cells are created.
      *
      * Priority:
-     *  1) Above cell style (same column, previous row)
+     *  1) Nearest above non-null cell style (scan upward in the same column)
      *  2) Left cell style (same row, previous column)
      *  3) Column style
      *  4) Row style
@@ -140,14 +140,16 @@ public class WriteRangeTool {
     private static void applyBestEffortStyle(Sheet sheet, int rowIndex, int colIndex, Cell target) {
         CellStyle style = null;
 
-        // 1) Above
-        if (rowIndex > 0) {
-            Row aboveRow = sheet.getRow(rowIndex - 1);
-            if (aboveRow != null) {
-                Cell above = aboveRow.getCell(colIndex);
-                if (above != null) {
-                    style = above.getCellStyle();
-                }
+        // 1) Scan upward (handles cases where the immediate above cell object is null)
+        for (int r = rowIndex - 1; r >= 0; r--) {
+            Row aboveRow = sheet.getRow(r);
+            if (aboveRow == null) {
+                continue;
+            }
+            Cell above = aboveRow.getCell(colIndex);
+            if (above != null) {
+                style = above.getCellStyle();
+                break;
             }
         }
 

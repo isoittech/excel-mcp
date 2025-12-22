@@ -573,8 +573,9 @@ async def tool_copy_range(
     source_end: str,
     target_start: str,
     target_sheet: str | None = None,
+    copy_style: bool = True,
 ) -> Dict[str, Any]:
-    """Copy a cell range to a target location (intended to include values and formatting).
+    """Copy a cell range to a target location.
 
     If the workbook is under EXCEL_SHARED_DIR, this also returns a public `download_url`.
 
@@ -586,13 +587,19 @@ async def tool_copy_range(
         target_start: Target start cell (A1 style).
         target_sheet:
             Target worksheet name (optional). If omitted, uses the source worksheet.
+        copy_style:
+            When true (default), copy cell styles (borders/fills/font/alignment) in addition to values.
+            When false, copy values only.
 
     Returns:
         A JSON-serializable dict containing `message`, `path`, and `download_url`.
     """
-    copy_range(path, sheet_name, source_start, source_end, target_start, target_sheet)
+    copy_range(path, sheet_name, source_start, source_end, target_start, target_sheet, copy_style=copy_style)
     return {
-        "message": f"Copied range {sheet_name}!{source_start}:{source_end} to {target_sheet or sheet_name}!{target_start} in {path}",
+        "message": (
+            f"Copied range {sheet_name}!{source_start}:{source_end} "
+            f"to {target_sheet or sheet_name}!{target_start} in {path} (copy_style={copy_style})"
+        ),
         "path": path,
         "download_url": build_download_url_for_path(path),
     }

@@ -29,11 +29,18 @@ public class CopyRangeTool {
      *     <li>sourceEnd</li>
      *     <li>targetStart</li>
      *     <li>targetSheet (optional, when omitted the same sheet is used)</li>
+     *     <li>copyStyle (optional, true/false; default: true)</li>
      * </ol>
+     *
+     * Backward compatible parsing:
+     * - 5 args: same sheet, copyStyle=true
+     * - 6 args: if 6th is boolean => copyStyle=<6th>, targetSheet=sheetName
+     *          else targetSheet=<6th>, copyStyle=true
+     * - 7 args: targetSheet=<6th>, copyStyle=<7th>
      */
     public static void main(String[] args) throws Exception {
-        if (args.length < 5 || args.length > 6) {
-            System.err.println("Usage: CopyRangeTool <filePath> <sheetName> <sourceStart> <sourceEnd> <targetStart> [targetSheet]");
+        if (args.length < 5 || args.length > 7) {
+            System.err.println("Usage: CopyRangeTool <filePath> <sheetName> <sourceStart> <sourceEnd> <targetStart> [targetSheet] [copyStyle]");
             System.exit(1);
         }
 
@@ -42,7 +49,21 @@ public class CopyRangeTool {
         String sourceStart = args[2];
         String sourceEnd = args[3];
         String targetStart = args[4];
-        String targetSheetName = args.length == 6 ? args[5] : sheetName;
+
+        String targetSheetName = sheetName;
+        boolean copyStyle = true;
+
+        if (args.length >= 6) {
+            String a5 = args[5];
+            if ("true".equalsIgnoreCase(a5) || "false".equalsIgnoreCase(a5)) {
+                copyStyle = Boolean.parseBoolean(a5);
+            } else {
+                targetSheetName = a5;
+            }
+        }
+        if (args.length == 7) {
+            copyStyle = Boolean.parseBoolean(args[6]);
+        }
 
         File file = new File(filePath);
         if (!file.exists()) {
@@ -71,6 +92,12 @@ public class CopyRangeTool {
                 if (tgtRow == null) {
                     tgtRow = targetSheet.createRow(r + rowOffset);
                 }
+
+                // Best-effort: copy row height when style copy is enabled.
+                if (copyStyle && srcRow != null) {
+                    tgtRow.setHeight(srcRow.getHeight());
+                }
+
                 for (int c = sourceRange.getFirstColumn(); c <= sourceRange.getLastColumn(); c++) {
                     Cell srcCell = srcRow != null ? srcRow.getCell(c) : null;
                     Cell tgtCell = tgtRow.getCell(c + colOffset);
@@ -78,9 +105,13 @@ public class CopyRangeTool {
                         tgtCell = tgtRow.createCell(c + colOffset);
                     }
                     if (srcCell != null) {
+                        if (copyStyle) {
+                            copyCellStyle(srcCell, tgtCell);
+                        }
                         copyCellValue(srcCell, tgtCell);
                     } else {
                         tgtCell.setBlank();
+                        // If srcCell doesn't exist, we keep target style as-is (do not wipe).
                     }
                 }
             }
@@ -88,6 +119,19 @@ public class CopyRangeTool {
             try (FileOutputStream fos = new FileOutputStream(file)) {
                 workbook.write(fos);
             }
+        }
+    }
+
+    private static void copyCellStyle(Cell src, Cell dest) {
+        if (src == null || dest == null) {
+            return;
+        }
+        try {
+            if (src.getCellStyle() != null) {
+                dest.setCellStyle(src.getCellStyle());
+            }
+        } catch (Exception ignored) {
+            // ignore
         }
     }
 
