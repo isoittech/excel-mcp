@@ -10,13 +10,13 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 
 import org.apache.poi.ss.usermodel.Cell;
-import org.apache.poi.ss.usermodel.CellStyle;
-import org.apache.poi.ss.usermodel.Font;
+import org.apache.poi.ss.usermodel.FillPatternType;
 import org.apache.poi.ss.usermodel.Row;
 import org.apache.poi.ss.usermodel.Sheet;
-import org.apache.poi.ss.usermodel.Workbook;
 import org.apache.poi.ss.util.CellRangeAddress;
+import org.apache.poi.xssf.usermodel.XSSFCellStyle;
 import org.apache.poi.xssf.usermodel.XSSFColor;
+import org.apache.poi.xssf.usermodel.XSSFFont;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 
 public class FormatRangeTool {
@@ -66,23 +66,23 @@ public class FormatRangeTool {
 
             CellRangeAddress range = ExcelRangeUtils.parseRange(startCell + ":" + endCell);
 
-            CellStyle style = workbook.createCellStyle();
-            Font font = workbook.createFont();
+            XSSFCellStyle style = workbook.createCellStyle();
+            XSSFFont font = workbook.createFont();
             font.setBold(bold);
             font.setItalic(italic);
             if (fontSize > 0) {
                 font.setFontHeightInPoints((short) fontSize);
             }
             if (!fontColor.isEmpty()) {
-                XSSFColor color = new XSSFColor(parseRgbColor(fontColor), null);
-                // In a full implementation we would use an indexed color or theme color.
-                // For simplicity, we ignore the font RGB color when applying the style.
+                XSSFColor fontXssfColor = new XSSFColor(parseRgbColor(fontColor), null);
+                font.setColor(fontXssfColor);
             }
             style.setFont(font);
 
             if (!bgColor.isEmpty()) {
                 XSSFColor bg = new XSSFColor(parseRgbColor(bgColor), null);
-                // For simplicity, ignore background RGB in this minimal implementation.
+                style.setFillForegroundColor(bg);
+                style.setFillPattern(FillPatternType.SOLID_FOREGROUND);
             }
 
             for (int r = range.getFirstRow(); r <= range.getLastRow(); r++) {
