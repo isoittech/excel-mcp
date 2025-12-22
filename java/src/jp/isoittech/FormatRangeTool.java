@@ -8,6 +8,8 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.util.HashMap;
+import java.util.Map;
 
 import org.apache.poi.ss.usermodel.Cell;
 import org.apache.poi.ss.usermodel.FillPatternType;
@@ -70,24 +72,22 @@ public class FormatRangeTool {
             // POI 4+ requires an IndexedColorMap for reliable RGB color handling in XSSF.
             IndexedColorMap colorMap = workbook.getStylesSource().getIndexedColors();
 
-            XSSFCellStyle style = workbook.createCellStyle();
-            XSSFFont font = workbook.createFont();
-            font.setBold(bold);
-            font.setItalic(italic);
-            if (fontSize > 0) {
-                font.setFontHeightInPoints((short) fontSize);
-            }
+            // Parse colors once; they can be reused across styles.
+            XSSFColor fontXssfColor = null;
             if (!fontColor.isEmpty()) {
-                XSSFColor fontXssfColor = new XSSFColor(parseRgbColor(fontColor), colorMap);
-                font.setColor(fontXssfColor);
+                fontXssfColor = new XSSFColor(parseRgbColor(fontColor), colorMap);
             }
-            style.setFont(font);
 
+            XSSFColor bgXssfColor = null;
             if (!bgColor.isEmpty()) {
-                XSSFColor bg = new XSSFColor(parseRgbColor(bgColor), colorMap);
-                style.setFillForegroundColor(bg);
-                style.setFillPattern(FillPatternType.SOLID_FOREGROUND);
+                bgXssfColor = new XSSFColor(parseRgbColor(bgColor), colorMap);
             }
+
+            // IMPORTANT:
+            // Do NOT apply a single newly-created style to all cells.
+            // That would wipe existing alignment (e.g., TOP -> default BOTTOM), borders, wraps, etc.
+            // Instead, clone the existing style per "base style" and apply only requested changes.
+            Map<Short, XSSFCellStyle> styleCache = new HashMap<>();
 
             for (int r = range.getFirstRow(); r <= range.getLastRow(); r++) {
                 Row row = sheet.getRow(r);
@@ -99,7 +99,39 @@ public class FormatRangeTool {
                     if (cell == null) {
                         cell = row.createCell(c);
                     }
-                    cell.setCellStyle(style);
+
+                    XSSFCellStyle baseStyle = (XSSFCellStyle) cell.getCellStyle();
+                    short baseIdx = baseStyle.getIndex();
+
+                    XSSFCellStyle derived = styleCache.get(baseIdx);
+                    if (derived == null) {
+                        derived = workbook.createCellStyle();
+                        derived.cloneStyleFrom(baseStyle);
+
+                        // Preserve existing font attributes, then override only requested ones.
+                        XSSFFont baseFont = workbook.getFontAt(baseStyle.getFontIndexAsInt());
+                        XSSFFont newFont = cloneFont(workbook, baseFont);
+
+                        newFont.setBold(bold);
+                        newFont.setItalic(italic);
+                        if (fontSize > 0) {
+                            newFont.setFontHeightInPoints((short) fontSize);
+                        }
+                        if (fontXssfColor != null) {
+                            newFont.setColor(fontXssfColor);
+                        }
+
+                        derived.setFont(newFont);
+
+                        if (bgXssfColor != null) {
+                            derived.setFillForegroundColor(bgXssfColor);
+                            derived.setFillPattern(FillPatternType.SOLID_FOREGROUND);
+                        }
+
+                        styleCache.put(baseIdx, derived);
+                    }
+
+                    cell.setCellStyle(derived);
                 }
             }
 
@@ -107,6 +139,42 @@ public class FormatRangeTool {
                 workbook.write(fos);
             }
         }
+    }
+
+    private static XSSFFont cloneFont(XSSFWorkbook workbook, XSSFFont src) {
+        XSSFFont dst = workbook.createFont();
+        if (src == null) {
+            return dst;
+        }
+
+        // Copy typical properties. (POI doesn't provide a direct "clone font" helper.)
+        dst.setFontName(src.getFontName());
+        dst.setFontHeight(src.getFontHeight());
+        dst.setUnderline(src.getUnderline());
+        dst.setStrikeout(src.getStrikeout());
+        dst.setTypeOffset(src.getTypeOffset());
+        dst.setCharSet(src.getCharSet());
+        dst.setFamily(src.getFamily());
+        dst.setBold(src.getBold());
+        dst.setItalic(src.getItalic());
+
+        // Preserve color if present; caller may override later.
+        try {
+            XSSFColor c = src.getXSSFColor();
+            if (c != null) {
+                dst.setColor(c);
+            } else {
+                dst.setColor(src.getColor());
+            }
+        } catch (Exception ignored) {
+            try {
+                dst.setColor(src.getColor());
+            } catch (Exception ignored2) {
+                // ignore
+            }
+        }
+
+        return dst;
     }
 
     /**
