@@ -104,6 +104,50 @@ def write_excel(file_path: str, sheet_name: str, data: List[List[Any]]) -> None:
         raise RuntimeError(result.stderr or f"WriteExcelTool failed: {result.returncode}")
 
 
+def write_range(file_path: str, sheet_name: str, start_cell: str, data: List[List[Any]]) -> None:
+    """Write a matrix of values into an Excel sheet starting at `start_cell`.
+
+    This is like :func:`write_excel` but allows specifying the top-left cell.
+
+    Behavior:
+    - Strings starting with "=" are written as formulas.
+    - ``None`` values are written as blank cells.
+
+    ``data`` must be JSON-serializable.
+    """
+
+    json_data = json.dumps(data, ensure_ascii=False)
+    result = _run_java("jp.isoittech.WriteRangeTool", [file_path, sheet_name, start_cell, json_data])
+    if result.returncode != 0:
+        raise RuntimeError(result.stderr or f"WriteRangeTool failed: {result.returncode}")
+
+
+def append_rows(file_path: str, sheet_name: str, rows: List[List[Any]], anchor_column: str = "A") -> int:
+    """Append rows to the first empty row, determined by scanning `anchor_column`.
+
+    The Java tool prints the 0-based starting row index to stdout; this function returns it.
+
+    Behavior:
+    - Strings starting with "=" are written as formulas.
+    - ``None`` values are written as blank cells.
+
+    ``rows`` must be JSON-serializable.
+    """
+
+    json_rows = json.dumps(rows, ensure_ascii=False)
+    result = _run_java("jp.isoittech.AppendRowsTool", [file_path, sheet_name, anchor_column, json_rows])
+    if result.returncode != 0:
+        raise RuntimeError(result.stderr or f"AppendRowsTool failed: {result.returncode}")
+
+    out = (result.stdout or "").strip()
+    if not out:
+        raise RuntimeError("AppendRowsTool returned no start row on stdout")
+    try:
+        return int(out)
+    except ValueError as e:
+        raise RuntimeError(f"AppendRowsTool returned non-integer start row: {out!r}") from e
+
+
 def create_sheet(file_path: str, sheet_name: str) -> None:
     result = _run_java("jp.isoittech.CreateSheetTool", [file_path, sheet_name])
     if result.returncode != 0:

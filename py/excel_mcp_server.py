@@ -41,6 +41,8 @@ from excel import (
     create_excel,
     read_excel,
     write_excel,
+    write_range,
+    append_rows,
     create_sheet,
     rename_worksheet,
     delete_worksheet,
@@ -272,6 +274,73 @@ async def tool_write_excel(path: str, sheet_name: str, data: Any) -> Dict[str, A
     return {
         "message": f"Wrote {len(data)} rows to {path}:{sheet_name}!A1",
         "path": path,
+        "download_url": build_download_url_for_path(path),
+    }
+
+
+@app.tool()
+async def tool_write_range(path: str, sheet_name: str, start_cell: str, data: Any) -> Dict[str, Any]:
+    """Write a 2D array into a worksheet starting at `start_cell`.
+
+    This is like `write_excel` but allows specifying the top-left cell.
+
+    If the workbook is under EXCEL_SHARED_DIR, this also returns a public `download_url`
+    for user-facing downloads.
+
+    Args:
+        path: Target workbook path.
+        sheet_name: Worksheet name.
+        start_cell: A1-style top-left cell address (e.g. `B3`).
+        data: A 2D array to write (JSON-serializable). `null` writes blanks.
+
+    Returns:
+        A JSON-serializable dict containing:
+        - `message`
+        - `path`
+        - `start_cell`
+        - `download_url`
+    """
+    write_range(path, sheet_name, start_cell, data)
+    return {
+        "message": f"Wrote {len(data)} rows to {path}:{sheet_name}!{start_cell}",
+        "path": path,
+        "start_cell": start_cell,
+        "download_url": build_download_url_for_path(path),
+    }
+
+
+@app.tool()
+async def tool_append_rows(
+    path: str,
+    sheet_name: str,
+    rows: Any,
+    anchor_column: str = "A",
+) -> Dict[str, Any]:
+    """Append rows at the first empty row determined by scanning `anchor_column`.
+
+    The anchor column is scanned top-to-bottom; the first row where the anchor cell is
+    missing/blank is considered the append position.
+
+    Args:
+        path: Target workbook path.
+        sheet_name: Worksheet name.
+        rows: 2D array (rows) to append (JSON-serializable).
+        anchor_column: Column letter used to determine the first empty row (default: "A").
+
+    Returns:
+        A JSON-serializable dict containing:
+        - `message`
+        - `path`
+        - `anchor_column`
+        - `start_row` (0-based)
+        - `download_url`
+    """
+    start_row = append_rows(path, sheet_name, rows, anchor_column=anchor_column)
+    return {
+        "message": f"Appended {len(rows)} rows to {path}:{sheet_name} at row {start_row + 1} (anchor={anchor_column})",
+        "path": path,
+        "anchor_column": anchor_column,
+        "start_row": start_row,
         "download_url": build_download_url_for_path(path),
     }
 

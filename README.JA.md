@@ -114,6 +114,16 @@ excel-mcp-server からも同じパスで読み書きできるように、ホス
 また、エンドユーザーはコンテナ内パス（例: `/mnt/data/file.xlsx`）へ直接アクセスできないため、excel-mcp-server は SSE モード時に `/files/...` を公開し、ツール結果に `download_url`（クリック可能な URL）を含めます。
 この `download_url` を生成するために、デプロイ環境で `EXCEL_PUBLIC_BASE_URL` の設定が必須です。
 
+##### 同一ファイルの継続編集（上書き保存）
+
+LibreChat にアップロードされた Excel が `/mnt/data/xxx.xlsx` のようなパスで参照できる場合、excel-mcp-server の各ツールは **そのパスを直接読み書き**できます。
+
+- 既存ファイルを編集したい場合は、以降のツール呼び出しで **同じ `path`（例: `/mnt/data/xxx.xlsx`）を使い続けてください**。
+- [`write_excel()`](py/excel_mcp_server.py:240) やシート操作系ツールは、基本的に **同一パスへ更新して保存（上書き）**します。
+- 新規作成の [`create_excel()`](py/excel_mcp_server.py:167) は「既存ファイルを上書きしない」仕様のため、アップロード済みファイルの編集用途には使いません。
+
+この方式により「保存のたびに別ファイルを生成する」必要がなく、スレッド/セッション中は同一ファイルを継続編集できます（ディスク消費を抑えられます）。
+
 設定項目:
 - `MCP_SHARED_DIR`: ホスト側の共有ディレクトリ（コンテナ内 `/mnt/data` へマウント）
 - `EXCEL_PUBLIC_BASE_URL`: エンドユーザーから到達可能な excel-mcp-server の公開 URL（例: `https://your-domain.example` や `http://your-host:8585`）
@@ -176,6 +186,55 @@ MCP クライアント（LibreChat）からは、`http://host.docker.internal:85
     "data": [
       ["A1", "B1", "C1"],
       ["A2", "B2", "C2"]
+    ]
+  }
+}
+```
+
+### セル範囲への書き込み（開始セル指定）
+
+`write_excel` は A1 起点固定ですが、開始セルを指定してピンポイントに書き込む場合は [`tool_write_range()`](py/excel_mcp_server.py:279) を使います。
+
+- `start_cell` を左上として `data`（2次元配列）を書き込みます（上書き）。
+- 文字列が `"="` で始まる場合は **数式として設定**します。
+- `null` は **空白セル**になります。
+
+```json
+{
+  "server_name": "excel-mcp-server",
+  "tool_name": "write_range",
+  "arguments": {
+    "path": "/path/to/file.xlsx",
+    "sheet_name": "Sheet1",
+    "start_cell": "D5",
+    "data": [
+      [1, 2, "=SUM(A1:B1)"],
+      [3, null, "text"]
+    ]
+  }
+}
+```
+
+### 行の追記（append）
+
+同じファイルに対して「毎回 A1 から書き直す」のを避けたい場合は [`tool_append_rows()`](py/excel_mcp_server.py:314) を使います。
+
+- `anchor_column`（例: `"A"`）を **上から走査**し、最初に空（未定義/BLANK/空文字）になっている行に追記します。
+- `rows` は **2次元配列（行の配列）**です。
+- 文字列が `"="` で始まる場合は **数式として設定**します。
+- `null` は **空白セル**になります。
+
+```json
+{
+  "server_name": "excel-mcp-server",
+  "tool_name": "append_rows",
+  "arguments": {
+    "path": "/path/to/file.xlsx",
+    "sheet_name": "Sheet1",
+    "anchor_column": "A",
+    "rows": [
+      ["2025-12-22", "Alice", 100],
+      ["2025-12-23", "Bob", 200]
     ]
   }
 }
