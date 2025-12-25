@@ -335,3 +335,15 @@ def create_pivot_table(
     if result.returncode != 0:
         raise RuntimeError(result.stderr or f"CreatePivotTableTool failed: {result.returncode}")
     return result.stdout.strip()
+
+
+def list_sheets(file_path: str) -> List[str]:
+    """Return worksheet names in the workbook.
+
+    The Java tool prints a JSON array of sheet names to stdout which is parsed and returned.
+    """
+
+    result = _run_java("jp.isoittech.ListSheetsTool", [file_path])
+    if result.returncode != 0:
+        raise RuntimeError(result.stderr or f"ListSheetsTool failed: {result.returncode}")
+    return json.loads(result.stdout.strip() or "[]")

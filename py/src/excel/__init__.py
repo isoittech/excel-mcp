@@ -26,6 +26,7 @@ from .wrapper import (
     validate_excel_range,
     create_chart,
     create_pivot_table,
+    list_sheets,
 )
 
 __all__ = [
@@ -48,4 +49,5 @@ __all__ = [
     "validate_excel_range",
     "create_chart",
     "create_pivot_table",
+    "list_sheets",
 ]

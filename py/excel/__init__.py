@@ -42,6 +42,7 @@ from src.excel import (
     validate_excel_range,
     create_chart,
     create_pivot_table,
+    list_sheets,
 )
 
 __all__ = [
@@ -64,6 +65,7 @@ __all__ = [
     "validate_excel_range",
     "create_chart",
     "create_pivot_table",
+    "list_sheets",
 ]
 
 # Import the real excel package (located in src/excel)

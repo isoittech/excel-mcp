@@ -57,7 +57,15 @@ uv run excel-mcp-server -t sse -p 8001
 4. Restart the MCP client so it picks up the new server configuration.
 5. In the client UI, you should now see an `excel-mcp-server` toolset
    that exposes operations such as creating workbooks, reading/writing
-   ranges, managing sheets, and creating charts or pivot tables.
+   ranges, managing sheets, listing sheet names, and creating charts or pivot tables.
+
+### List sheet names
+
+A tool is available to list worksheet names in a workbook:
+
+- Tool: `tool_list_sheets`
+- Args: `path` (e.g. `/mnt/data/book.xlsx`)
+- Returns: `{ "path": "...", "sheets": ["Sheet1", "Data", ...] }`
 
 If the server fails to start, check the client logs for errors about
 Java, the classpath, or missing Python dependencies, and verify that you

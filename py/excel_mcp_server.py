@@ -57,6 +57,7 @@ from excel import (
     validate_excel_range,
     create_chart,
     create_pivot_table,
+    list_sheets,
 )
 
 # NOTE:
@@ -698,6 +699,23 @@ async def tool_create_chart(
         "path": path,
         "download_url": build_download_url_for_path(path),
     }
+
+
+@app.tool()
+async def tool_list_sheets(path: str) -> Dict[str, Any]:
+    """List worksheet names in a workbook.
+
+    Args:
+        path: Target workbook path (e.g. `/mnt/data/book.xlsx`).
+
+    Returns:
+        A JSON-serializable dict:
+        - `path`: echo of the workbook path
+        - `sheets`: list of worksheet names in order
+    """
+
+    sheets = list_sheets(path)
+    return {"path": path, "sheets": sheets}
 
 
 @app.tool()
